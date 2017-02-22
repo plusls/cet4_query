@@ -18,7 +18,7 @@ def get_data(zkzh,xm):
     return solve_data(text)
 
 	
-filename = '计院.xlsx'
+filename = 'data.xlsx'
 print('读取表格数据...')
 rbook = xlrd.open_workbook(filename)
 rsh = rbook.sheet_by_index(0)
