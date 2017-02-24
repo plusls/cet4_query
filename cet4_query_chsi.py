@@ -9,11 +9,13 @@ data_file = '162四六级考生安排161205.xlsx'
 out_file = 'out.cvs'
 xff = 1
 max_rows = 0
-threading_max = 5
+threading_max = 200
 threads = []
+error_num = []
 now = 1
 now_write = 1
 lock = threading.Lock()
+sync_with_num = False
 ######################
 
 def query_function():
@@ -23,6 +25,8 @@ def query_function():
     global now_write
     global rows
     global max_rows
+    global sync_with_num
+    global error_num
     while True:
         #print(threading.current_thread().name,1)
         lock.acquire()
@@ -35,15 +39,20 @@ def query_function():
         xm = rsh.cell_value(now, column_data[1]).replace(' ','')
         num = rsh.cell_value(now, column_data[2]).replace(' ','')
         #print(threading.current_thread().name,2)
+        xff_tmp, total_score = query_data(zkzh, xm, xff, 0)
         lock.acquire()
-        xff, total_score = query_data(zkzh, xm, xff, 0)
-        lock.release()
-        while now_query != now_write:
-            #print(threading.current_thread().name,3)
-            pass
+        xff = xff_tmp
+        if sync_with_num:
+            lock.release()
+            while now_query != now_write:
+                #print(threading.current_thread().name,3)
+               pass
+
         fp.write('%s,%s,%s,%s\n' % (zkzh, xm, num, total_score))
         print('%d/%d,%s 当前已完成:%.2f%%' % (now_write, rows - 1, xm, now_write * 100 / (rows - 1)))
         now_write += 1
+        if not sync_with_num:
+            lock.release()
 def query_data(zkzh, xm, xff, err_num):
     #查询
     url = 'http://www.chsi.com.cn/cet/query?'
@@ -51,7 +60,7 @@ def query_data(zkzh, xm, xff, err_num):
     headers = {'Referer':'http://www.chsi.com.cn/cet/','X-Forwarded-For':'127.0.0.' + str(xff)}
     query = urllib.parse.urlencode(query)
     req = urllib.request.Request(url + query,None,headers)
-    for i in range(4):
+    for i in range(10):
         try:
             text = urllib.request.urlopen(req).read().decode('utf8')
             break
@@ -60,7 +69,10 @@ def query_data(zkzh, xm, xff, err_num):
                 print('正在进行第' + str(i) + '次重试')
             print ('哎呀，你的网络炸了呢')
     else:
-        print ('人家才不会和网络差的人一起玩呢，哼')
+        print ('人家才不会和网络差的人一起玩呢，哼～～～～～～～～～～～～～～～～～～～～')
+        lock.acquire()
+        error_num.append(xm)
+        lock.release()
         exit()
     #处理数据
     search_text = ['<span class="colorRed">', '</span>']
@@ -75,7 +87,10 @@ def query_data(zkzh, xm, xff, err_num):
         if err_num < 3:
             ret = query_data(zkzh, xm, xff + 1, err_num + 1)
         else:
-            print('连续错误那么多次，人家不查这人了，哼～')
+            print('连续错误那么多次，人家不查这人了，哼～～～～～～～～～～～～～～～～～')
+            lock.acquire()
+            error_num.append(xm)
+            lock.release()
             return (0, 'error')
     return ret
 
@@ -110,6 +125,9 @@ while now < (max_rows or rows):
     if len(threads) < threading_max:
         threads.append(threading.Thread(target=query_function))
         threads[len(threads) - 1].start()
+    #else:
+        #break
 
 for i in threads:
     i.join()
+print(error_num)
