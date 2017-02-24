@@ -1,6 +1,49 @@
 import urllib.request
+import threading
 import xlrd
-#import xlwt
+
+#初始数据
+######################
+data_file = 'data.xlsx'
+data_file = '162四六级考生安排161205.xlsx'
+out_file = 'out.cvs'
+xff = 1
+max_rows = 0
+threading_max = 5
+threads = []
+now = 1
+now_write = 1
+lock = threading.Lock()
+######################
+
+def query_function():
+    global rsh
+    global xff
+    global now
+    global now_write
+    global rows
+    global max_rows
+    while True:
+        #print(threading.current_thread().name,1)
+        lock.acquire()
+        if now == (max_rows or rows):
+            break
+        now_query = now
+        now += 1
+        lock.release()
+        zkzh = rsh.cell_value(now, column_data[0]).replace(' ','')
+        xm = rsh.cell_value(now, column_data[1]).replace(' ','')
+        num = rsh.cell_value(now, column_data[2]).replace(' ','')
+        #print(threading.current_thread().name,2)
+        lock.acquire()
+        xff, total_score = query_data(zkzh, xm, xff, 0)
+        lock.release()
+        while now_query != now_write:
+            #print(threading.current_thread().name,3)
+            pass
+        fp.write('%s,%s,%s,%s\n' % (zkzh, xm, num, total_score))
+        print('%d/%d,%s 当前已完成:%.2f%%' % (now_write, rows - 1, xm, now_write * 100 / (rows - 1)))
+        now_write += 1
 def query_data(zkzh, xm, xff, err_num):
     #查询
     url = 'http://www.chsi.com.cn/cet/query?'
@@ -37,20 +80,13 @@ def query_data(zkzh, xm, xff, err_num):
     return ret
 
 
-#初始数据
-######################
-data_file = 'data.xlsx'
-data_file = '162四六级考生安排161205.xlsx'
-out_file = 'out.cvs'
-xff = 1
-max_rows = 0
-######################
 print('读取表格数据...')
 try:
     rbook = xlrd.open_workbook(data_file)
 except FileNotFoundError as e:
     print ('连文件都没有，你让人家怎么查嘛，根本找不到' + data_file + '的说')
     exit()
+
 rsh = rbook.sheet_by_index(0)
 rows = rsh.nrows
 column = rsh.ncols
@@ -66,13 +102,14 @@ for i in range(column):
         column_data[2] = i
 print('读取完成...')
 
+
 print('正在进行查询...')
 fp = open(out_file,'w')
 fp.write('准考证号,姓名,学号,四级成绩\n')
-for i in range(1, max_rows or rows):
-    zkzh = rsh.cell_value(i, column_data[0]).replace(' ','')
-    xm = rsh.cell_value(i, column_data[1]).replace(' ','')
-    num = rsh.cell_value(i, column_data[2]).replace(' ','')
-    xff, total_score = query_data(zkzh, xm, xff, 0)
-    fp.write('%s,%s,%s,%s\n' % (zkzh, xm, num, total_score))
-    print('%d/%d,%s 当前已完成:%.2f%%' % (i, rows - 1, xm, i * 100 / (rows - 1)))
+while now < (max_rows or rows):
+    if len(threads) < threading_max:
+        threads.append(threading.Thread(target=query_function))
+        threads[len(threads) - 1].start()
+
+for i in threads:
+    i.join()
