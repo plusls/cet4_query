@@ -6,10 +6,10 @@ import xlrd
 ######################
 data_file = 'data.xlsx'
 data_file = '162四六级考生安排161205.xlsx'
-out_file = 'out.cvs'
-xff = 1
+out_file = 'out.csv'
+xff = 1900
 max_rows = 0
-threading_max = 200
+threading_max = 700
 threads = []
 error_num = []
 now = 1
@@ -30,14 +30,16 @@ def query_function():
     while True:
         #print(threading.current_thread().name,1)
         lock.acquire()
-        if now == (max_rows or rows):
+        if now >= (max_rows or rows):
             break
+            #print(now)
+
         now_query = now
         now += 1
         lock.release()
-        zkzh = rsh.cell_value(now, column_data[0]).replace(' ','')
-        xm = rsh.cell_value(now, column_data[1]).replace(' ','')
-        num = rsh.cell_value(now, column_data[2]).replace(' ','')
+        zkzh = rsh.cell_value(now_query, column_data[0]).replace(' ','')
+        xm = rsh.cell_value(now_query, column_data[1]).replace(' ','')
+        num = rsh.cell_value(now_query, column_data[2]).replace(' ','')
         #print(threading.current_thread().name,2)
         xff_tmp, total_score = query_data(zkzh, xm, xff, 0)
         lock.acquire()
@@ -53,6 +55,7 @@ def query_function():
         now_write += 1
         if not sync_with_num:
             lock.release()
+    lock.release()
 def query_data(zkzh, xm, xff, err_num):
     #查询
     url = 'http://www.chsi.com.cn/cet/query?'
@@ -117,7 +120,6 @@ for i in range(column):
         column_data[2] = i
 print('读取完成...')
 
-
 print('正在进行查询...')
 fp = open(out_file,'w')
 fp.write('准考证号,姓名,学号,四级成绩\n')
@@ -125,9 +127,10 @@ while now < (max_rows or rows):
     if len(threads) < threading_max:
         threads.append(threading.Thread(target=query_function))
         threads[len(threads) - 1].start()
+for i in threads:
+    i.join()
+
     #else:
         #break
 
-for i in threads:
-    i.join()
 print(error_num)
