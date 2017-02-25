@@ -1,14 +1,15 @@
 import urllib.request
 import threading
 import xlrd
+import time
 
 #初始数据
 ######################
 data_file = 'data.xlsx'
 data_file = '162四六级考生安排161205.xlsx'
 out_file = 'out.csv'
-xff = 1900
-max_rows = 0
+xff = 1
+max_rows = 8
 threading_max = 700
 threads = []
 error_num = []
@@ -16,6 +17,7 @@ now = 1
 now_write = 1
 lock = threading.Lock()
 sync_with_num = False
+start_time = time.time()
 ######################
 
 def query_function():
@@ -74,7 +76,7 @@ def query_data(zkzh, xm, xff, err_num):
     else:
         print ('人家才不会和网络差的人一起玩呢，哼～～～～～～～～～～～～～～～～～～～～')
         lock.acquire()
-        error_num.append(xm)
+        error_num.append((xm, zkzh))
         lock.release()
         exit()
     #处理数据
@@ -92,7 +94,7 @@ def query_data(zkzh, xm, xff, err_num):
         else:
             print('连续错误那么多次，人家不查这人了，哼～～～～～～～～～～～～～～～～～')
             lock.acquire()
-            error_num.append(xm)
+            error_num.append((xm, zkzh))
             lock.release()
             return (0, 'error')
     return ret
@@ -132,5 +134,8 @@ for i in threads:
 
     #else:
         #break
-
-print(error_num)
+print("共查询了%d条数据,失败%d条,用时%ds" % (now, len(error_num), time.time() - start_time))
+if error_num:
+    print("失败名单：")
+    for i in error_num:
+        print("%s:%s" % error_num)
