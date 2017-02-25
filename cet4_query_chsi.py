@@ -2,15 +2,15 @@ import urllib.request
 import threading
 import xlrd
 import time
-
+import random
 #初始数据
 ######################
 data_file = 'data.xlsx'
 data_file = '162四六级考生安排161205.xlsx'
 out_file = 'out.csv'
-xff = 1
-max_rows = 8
-threading_max = 700
+xff = random.randint(1,999999)
+max_rows = 0
+threading_max = 1000
 threads = []
 error_num = []
 now = 1
@@ -72,13 +72,14 @@ def query_data(zkzh, xm, xff, err_num):
         except Exception as e:
             if i:
                 print('正在进行第' + str(i) + '次重试')
-            print ('哎呀，你的网络炸了呢')
-    else:
-        print ('人家才不会和网络差的人一起玩呢，哼～～～～～～～～～～～～～～～～～～～～')
-        lock.acquire()
-        error_num.append((xm, zkzh))
-        lock.release()
-        exit()
+            print ('哎呀，你的网络炸了呢',e)
+            if i == 9:
+                print ('人家才不会和网络差的人一起玩呢，哼～～～～～～～～～～～～～～～～～～～～')
+                lock.acquire()
+                error_num.append((xm, zkzh, str(e)))
+                lock.release()
+                exit()
+        
     #处理数据
     search_text = ['<span class="colorRed">', '</span>']
     total_score_start = text.find(search_text[0])
@@ -94,7 +95,7 @@ def query_data(zkzh, xm, xff, err_num):
         else:
             print('连续错误那么多次，人家不查这人了，哼～～～～～～～～～～～～～～～～～')
             lock.acquire()
-            error_num.append((xm, zkzh))
+            error_num.append((xm, zkzh, str(e)))
             lock.release()
             return (0, 'error')
     return ret
@@ -126,7 +127,7 @@ print('正在进行查询...')
 fp = open(out_file,'w')
 fp.write('准考证号,姓名,学号,四级成绩\n')
 while now < (max_rows or rows):
-    if len(threads) < threading_max:
+    if len(threads) <= min(threading_max, rows - now):
         threads.append(threading.Thread(target=query_function))
         threads[len(threads) - 1].start()
 for i in threads:
@@ -138,4 +139,4 @@ print("共查询了%d条数据,失败%d条,用时%ds" % (now, len(error_num), ti
 if error_num:
     print("失败名单：")
     for i in error_num:
-        print("%s:%s" % error_num)
+        print("%s:%s %s" % i)
